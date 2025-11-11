@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from meteostat import Hourly, Point
 import requests
 
-
 def cargar_datos():
     """Carga y ordena datos limpios"""
     df = pd.read_csv('datos/historico_limpio.csv')
@@ -73,10 +72,9 @@ def crear_features(df, modo='entrenamiento'):
 
 
 def obtener_clima_actual():
-    """Obtiene clima actual de open-meteo"""
     try:
-        # Coordenadas CDMX: 19.40, -99.15
-        url = "https://api.open-meteo.com/v1/forecast?latitude=19.40&longitude=-99.15&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,pressure_msl&timezone=America/Mexico_City"
+        # Coordenadas Gustavo A. Madero, CDMX: 19.50, -99.08
+        url = "https://api.open-meteo.com/v1/forecast?latitude=19.50&longitude=-99.08&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,pressure_msl&timezone=America/Mexico_City"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             current = response.json()['current']
@@ -93,9 +91,7 @@ def obtener_clima_actual():
         print(f"Error obteniendo clima: {e}")
     return None
 
-
 def obtener_datos_historicos():
-    """Obtiene datos de Meteostat"""
     punto = Point(19.40, -99.15, 2240)
     ahora = datetime.now()
     hace_800_dias = ahora - timedelta(days=800)
@@ -105,7 +101,6 @@ def obtener_datos_historicos():
 
 
 def entrenar_modelo(X_train, y_train):
-    """Entrena modelo con TimeSeriesSplit"""
     tscv = TimeSeriesSplit(n_splits=5)
     modelo = HistGradientBoostingRegressor(
         max_iter=500, max_depth=15, learning_rate=0.02,
@@ -132,7 +127,6 @@ def entrenar_modelo(X_train, y_train):
 
 
 def predecir_hora_actual(modelo, columnas_features, df_historico):
-    """Predice temperatura actual"""
     clima_actual = obtener_clima_actual()
     if clima_actual is None:
         print("No se pudo obtener clima en tiempo real")
@@ -153,7 +147,6 @@ def predecir_hora_actual(modelo, columnas_features, df_historico):
 
 
 def guardar_y_visualizar(modelo, scores, y_test, predicciones, feature_cols, df_historico):
-    """Guarda modelo y crea visualizaciones"""
     joblib.dump(modelo, 'modelo_temperatura.pkl')
     scores.to_csv('metricas_cv.csv', index=False)
 
@@ -181,10 +174,11 @@ def guardar_y_visualizar(modelo, scores, y_test, predicciones, feature_cols, df_
 
     plt.tight_layout()
     plt.savefig('resultados.png', dpi=150)
-    print("✓ Resultados guardados")
-
 
 def main():
+    hora = datetime.now()
+    hora_actual = hora.strftime('%H:%M:%S')
+    hora_siguiente = (hora + timedelta(hours=1)).strftime('%H:%M:%S')
     df = cargar_datos()
     print(f"Datos: {len(df)} registros")
 
@@ -207,10 +201,10 @@ def main():
     resultado = predecir_hora_actual(modelo, feature_cols, df)
     if resultado:
         temp_pred, temp_real = resultado
-        print(f"\n=== PREDICCIÓN SIGUIENTE HORA ===")
-        print(f"Temperatura actual: {temp_real:.1f}°C")
-        print(f"Temperatura predicha: {temp_pred:.1f}°C")
-        print(f"Diferencia: {abs(temp_pred - temp_real):.1f}°C")
+        print(f"\nResultados")
+        print(f"Temperatura para las {hora_actual}: {temp_real:.1f}°C")
+        print(f"Temperatura para las {hora_siguiente} : {temp_pred:.1f}°C")
+        print(f"La temperatura cambiara: {abs(temp_pred - temp_real):.1f}°C")
 
     guardar_y_visualizar(modelo, scores, y_test, predicciones, feature_cols, df)
 
